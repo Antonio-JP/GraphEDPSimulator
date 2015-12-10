@@ -5,6 +5,7 @@ import java.io.FileNotFoundException;
 import java.io.PrintStream;
 import java.text.NumberFormat;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
@@ -15,7 +16,9 @@ import simulator.graph.TimeSimGraph;
 import simulator.graph.TimeVertex;
 import simulator.timeFunctions.EDOFunction;
 import simulator.timeFunctions.Function;
+import simulator.timeFunctions.IntervalFunction;
 import simulator.timeFunctions.InvalidValue;
+import simulator.timeFunctions.PeriodicFunction;
 import simulator.timeFunctions.algImpl.FunctionAlgebra;
 
 public class Simulator {
@@ -29,6 +32,23 @@ public class Simulator {
 			double density = Double.parseDouble(args[1]);
 			double initTime = Double.parseDouble(args[2]);
 			double time = Double.parseDouble(args[3]);
+			
+			if(args.length == 5) {
+				elapsedTime = Double.parseDouble(args[4]);
+			}
+			
+			//Checking parameters
+			if(size <= 0) {
+				throw new Exception("The size (first parameter) should be a positive integer");
+			} else if(density <= 0 || density > 1) {
+				throw new Exception("The density (second parameter) should be a double in the interval (0,1]");
+			} else if(initTime <= 0) {
+				throw new Exception("The init Time (third parameter) should be a double greater than zero");
+			} else if(time <= initTime + elapsedTime) {
+				throw new Exception("The time to evalueate (fourth parameter) should be grater than the init time to print the results");
+			} else if(elapsedTime <= 0) {
+				throw new Exception("The elapsed time (fifth parameter) shoul be a strict positive number");
+			}
 		
 		
 			TimeSimGraph graph = CreateRandomGraph(size, density);
@@ -77,33 +97,13 @@ public class Simulator {
 		Set<TimeVertex> setOfVertex = graph.vertexSet();
 		Iterator<TimeVertex> iterator = setOfVertex.iterator();
 		
-		TimeVertex first = iterator.next();
-		first.setFunction(algebra.add(
-				algebra.sin(algebra.multiply(
-						Function.getIdentity(),
-						Function.getConstant(2*Math.PI))),
-				Function.getConstant(1.0)));
+		//We create the boundary of the graph
+		HashSet<TimeVertex> boundary = new HashSet<>();
+		boundary.add(iterator.next());
 		
-		while(iterator.hasNext()) {
-			TimeVertex v = iterator.next();
-			
-			v.setFunction(new EDOFunction(elapsedTime,0.0));
-		}
+		SetBoundaryFunction(boundary);
 		
-		for(TimeVertex v : graph.vertexSet()) {
-			if(!v.equals(first)) {
-				EDOFunction f = (EDOFunction)v.getFunction();
-				
-				Function der = algebra.getZero();
-				for(TimeVertex neig : graph.vertexFrom(v)) {
-					der = algebra.add(der, neig.getFunction());
-				}
-				
-				der = algebra.remove(der, algebra.scalar(f, (double) graph.vertexFrom(v).size()));
-				
-				f.setDerivative(der);
-			}
-		}
+		SetPDEOverVertices(graph, boundary);
 		
 	}
 
@@ -136,5 +136,67 @@ public class Simulator {
 		}
 		
 		stream.close();
+	}
+
+	private static void SetBoundaryFunction(Set<TimeVertex> boundary) {
+		for(TimeVertex v : boundary) {
+			v.setFunction(GetBoundaryFunction());
+		}
+	}	
+	
+	private static Function GetBoundaryFunction() {
+		// Funcion senosoidal siempre positiva
+//		return algebra.add(
+//				algebra.sin(algebra.multiply(
+//						Function.getIdentity(),
+//						Function.getConstant(2*Math.PI))),
+//				Function.getConstant(1.0));
+		//Funcion de pulsos 1 - 0
+		IntervalFunction in = new IntervalFunction();
+		in.setIntervals(1.0);
+		in.setFuntions(Function.getConstant(1.0), Function.getConstant(0.0));
+		return new PeriodicFunction(2.0, in);
+	}
+	
+	private static void SetPDEOverVertices(TimeSimGraph graph, Set<TimeVertex> boundaryVertices) throws ArithmeticException {
+		//Initial set to EDP functions
+		for(TimeVertex v : graph.vertexSet()) {
+			if(!boundaryVertices.contains(v)) {
+				v.setFunction(new EDOFunction(elapsedTime, 0.0));
+			}
+		}
+		
+		//Heat Equation
+//		for(TimeVertex v : graph.vertexSet()) {
+//			if(!boundaryVertices.contains(v)) {
+//				EDOFunction f = (EDOFunction)v.getFunction();
+//				
+//				Function der = algebra.getZero();
+//				for(TimeVertex neig : graph.vertexFrom(v)) {
+//					der = algebra.add(der, neig.getFunction());
+//				}
+//				
+//				der = algebra.remove(der, algebra.scalar(f, (double) graph.vertexFrom(v).size()));
+//				
+//				f.setDerivative(der);
+//			}
+//		}
+		//Wave equation		
+		for(TimeVertex v : graph.vertexSet()) {
+			if(!boundaryVertices.contains(v)) {
+				EDOFunction vertexFunc = (EDOFunction)v.getFunction();
+				EDOFunction f = new EDOFunction(elapsedTime, 0.0);
+				
+				Function der = algebra.getZero();
+				for(TimeVertex neig : graph.vertexFrom(v)) {
+					der = algebra.add(der, neig.getFunction());
+				}
+				
+				der = algebra.remove(der, algebra.scalar(vertexFunc, (double) graph.vertexFrom(v).size()));
+				
+				f.setDerivative(der);
+				vertexFunc.setDerivative(f);
+			}
+		}
 	}
 }
