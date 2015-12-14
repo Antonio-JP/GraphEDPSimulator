@@ -26,6 +26,8 @@ public class Simulator {
 	
 	private static double elapsedTime = 0.01;
 	
+	private static String pathToFile = null;
+	
 	public static void main(String args[]) {
 		try {
 			int size = Integer.parseInt(args[0]);
@@ -33,8 +35,12 @@ public class Simulator {
 			double initTime = Double.parseDouble(args[2]);
 			double time = Double.parseDouble(args[3]);
 			
-			if(args.length == 5) {
+			if(args.length >= 5) {
 				elapsedTime = Double.parseDouble(args[4]);
+			}
+			
+			if(args.length >= 6) {
+				pathToFile = args[5];
 			}
 			
 			//Checking parameters
@@ -42,8 +48,8 @@ public class Simulator {
 				throw new Exception("The size (first parameter) should be a positive integer");
 			} else if(density <= 0 || density > 1) {
 				throw new Exception("The density (second parameter) should be a double in the interval (0,1]");
-			} else if(initTime <= 0) {
-				throw new Exception("The init Time (third parameter) should be a double greater than zero");
+			} else if(initTime < 0) {
+				throw new Exception("The init Time (third parameter) should be a double greater or equal than zero");
 			} else if(time <= initTime + elapsedTime) {
 				throw new Exception("The time to evalueate (fourth parameter) should be grater than the init time to print the results");
 			} else if(elapsedTime <= 0) {
@@ -51,8 +57,7 @@ public class Simulator {
 			}
 		
 		
-			TimeSimGraph graph = CreateRandomGraph(size, density);
-		
+			TimeSimGraph graph = CreateGraph(size, density);		
 		
 			SetUpInitialConditions(graph);
 			
@@ -70,40 +75,52 @@ public class Simulator {
 		}
 	}
 
-	private static TimeSimGraph CreateRandomGraph(int size, double density) {
+	private static TimeSimGraph CreateGraph(int size, double density) {
 		TimeSimGraph graph = new TimeSimGraph();
-		
-		Random r = new Random();
-		
-		for(int i = 0; i < size; i++) {
-			graph.addVertex(new TimeVertex());
-		}
-		
-		List<TimeVertex> vertexList = Arrays.asList(graph.vertexSet().toArray(new TimeVertex[0]));
-		
-		for(int i = 0; i < vertexList.size(); i++) {
-			for(int j = i+1; j < vertexList.size(); j++) {
-				if(r.nextDouble() < density) {
-					graph.addEdge(vertexList.get(i), vertexList.get(j));
-					graph.addEdge(vertexList.get(j), vertexList.get(i));
+		if(pathToFile == null) { //Random graph
+			Random r = new Random();
+			
+			for(int i = 0; i < size; i++) {
+				graph.addVertex(new TimeVertex());
+			}
+			
+			List<TimeVertex> vertexList = Arrays.asList(graph.vertexSet().toArray(new TimeVertex[0]));
+			
+			for(int i = 0; i < vertexList.size(); i++) {
+				for(int j = i+1; j < vertexList.size(); j++) {
+					if(r.nextDouble() < density) {
+						graph.addEdge(vertexList.get(i), vertexList.get(j));
+						graph.addEdge(vertexList.get(j), vertexList.get(i));
+					}
 				}
 			}
+			graph.printToFile("./graphs/graph.csv");
+		} else {
+			graph.buildGraphFromFile(pathToFile);
 		}
 		
 		return graph;		
 	}
 
 	private static void SetUpInitialConditions(TimeSimGraph graph) throws ArithmeticException {
-		Set<TimeVertex> setOfVertex = graph.vertexSet();
-		Iterator<TimeVertex> iterator = setOfVertex.iterator();
+
+		HashSet<TimeVertex> boundary = new HashSet<>();
+		
+		//No boundary -> Do Nothing
 		
 		//We create the boundary of the graph
-		HashSet<TimeVertex> boundary = new HashSet<>();
-		boundary.add(iterator.next());
+		//First vertex as boundary
+//		Set<TimeVertex> setOfVertex = graph.vertexSet();
+//		Iterator<TimeVertex> iterator = setOfVertex.iterator();
+//		boundary.add(iterator.next());
+		
+		
 		
 		SetBoundaryFunction(boundary);
 		
 		SetPDEOverVertices(graph, boundary);
+		
+		SetInitialData(graph, boundary);
 		
 	}
 
@@ -167,36 +184,55 @@ public class Simulator {
 		}
 		
 		//Heat Equation
-//		for(TimeVertex v : graph.vertexSet()) {
-//			if(!boundaryVertices.contains(v)) {
-//				EDOFunction f = (EDOFunction)v.getFunction();
-//				
-//				Function der = algebra.getZero();
-//				for(TimeVertex neig : graph.vertexFrom(v)) {
-//					der = algebra.add(der, neig.getFunction());
-//				}
-//				
-//				der = algebra.remove(der, algebra.scalar(f, (double) graph.vertexFrom(v).size()));
-//				
-//				f.setDerivative(der);
-//			}
-//		}
-		//Wave equation		
 		for(TimeVertex v : graph.vertexSet()) {
 			if(!boundaryVertices.contains(v)) {
-				EDOFunction vertexFunc = (EDOFunction)v.getFunction();
-				EDOFunction f = new EDOFunction(elapsedTime, 0.0);
+				EDOFunction f = (EDOFunction)v.getFunction();
 				
 				Function der = algebra.getZero();
 				for(TimeVertex neig : graph.vertexFrom(v)) {
 					der = algebra.add(der, neig.getFunction());
 				}
 				
-				der = algebra.remove(der, algebra.scalar(vertexFunc, (double) graph.vertexFrom(v).size()));
+				der = algebra.remove(der, algebra.scalar(f, (double) graph.vertexFrom(v).size()));
 				
 				f.setDerivative(der);
-				vertexFunc.setDerivative(f);
 			}
 		}
+		//Wave equation		
+//		for(TimeVertex v : graph.vertexSet()) {
+//			if(!boundaryVertices.contains(v)) {
+//				EDOFunction vertexFunc = (EDOFunction)v.getFunction();
+//				EDOFunction f = new EDOFunction(elapsedTime, 0.0);
+//				
+//				Function der = algebra.getZero();
+//				for(TimeVertex neig : graph.vertexFrom(v)) {
+//					der = algebra.add(der, neig.getFunction());
+//				}
+//				
+//				der = algebra.remove(der, algebra.scalar(vertexFunc, (double) graph.vertexFrom(v).size()));
+//				
+//				f.setDerivative(der);
+//				vertexFunc.setDerivative(f);
+//			}
+//		}
+	}
+
+	private static void SetInitialData(TimeSimGraph graph, HashSet<TimeVertex> boundary) {
+		//All to zero -> Do nothing
+		
+		//The first to 1
+		for(TimeVertex v : graph.vertexSet()) {
+			((EDOFunction)v.getFunction()).setInitialValue(1.0);
+			break;
+		}
+		
+		//The half to 1
+//		int i = 0;
+//		for(TimeVertex v : graph.vertexSet()) {
+//			if(!boundary.contains(v) && (i%2 == 0)) {
+//				((EDOFunction)v.getFunction()).setInitialValue(1.0);
+//			}
+//			i++;
+//		}
 	}
 }
