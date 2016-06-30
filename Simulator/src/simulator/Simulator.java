@@ -110,12 +110,12 @@ public class Simulator {
 		
 		//We create the boundary of the graph
 		//First vertex as boundary
-//		Set<TimeVertex> setOfVertex = graph.vertexSet();
-//		Iterator<TimeVertex> iterator = setOfVertex.iterator();
-//		boundary.add(iterator.next());
+		Set<TimeVertex> setOfVertex = graph.vertexSet();
+		Iterator<TimeVertex> iterator = setOfVertex.iterator();
+		boundary.add(iterator.next());
 		
 		
-		
+		//Other Initial Conditions
 		SetBoundaryFunction(boundary);
 		
 		SetPDEOverVertices(graph, boundary);
@@ -184,20 +184,20 @@ public class Simulator {
 		}
 		
 		//Heat Equation
-		for(TimeVertex v : graph.vertexSet()) {
-			if(!boundaryVertices.contains(v)) {
-				EDOFunction f = (EDOFunction)v.getFunction();
-				
-				Function der = algebra.getZero();
-				for(TimeVertex neig : graph.vertexFrom(v)) {
-					der = algebra.add(der, neig.getFunction());
-				}
-				
-				der = algebra.remove(der, algebra.scalar(f, (double) graph.vertexFrom(v).size()));
-				
-				f.setDerivative(der);
-			}
-		}
+//		for(TimeVertex v : graph.vertexSet()) {
+//			if(!boundaryVertices.contains(v)) {
+//				EDOFunction f = (EDOFunction)v.getFunction();
+//				
+//				Function der = algebra.getZero();
+//				for(TimeVertex neig : graph.vertexFrom(v)) {
+//					der = algebra.add(der, neig.getFunction());
+//				}
+//				
+//				der = algebra.remove(der, algebra.scalar(f, (double) graph.vertexFrom(v).size()));
+//				
+//				f.setDerivative(der);
+//			}
+//		}
 		//Wave equation		
 //		for(TimeVertex v : graph.vertexSet()) {
 //			if(!boundaryVertices.contains(v)) {
@@ -215,16 +215,34 @@ public class Simulator {
 //				vertexFunc.setDerivative(f);
 //			}
 //		}
+		
+		//Heat Equation with pow term
+		for(TimeVertex v : graph.vertexSet()) {
+			if(!boundaryVertices.contains(v)) {
+				EDOFunction f = (EDOFunction)v.getFunction();
+				
+				Function der = algebra.getZero();
+				for(TimeVertex neig : graph.vertexFrom(v)) {
+					der = algebra.add(der, neig.getFunction());
+				}
+				
+				der = algebra.remove(der, algebra.scalar(f, (double) graph.vertexFrom(v).size()));
+				
+				der = algebra.add(der, algebra.pow(f, Function.getConstant(2.0)));
+				
+				f.setDerivative(der);
+			}
+		}
 	}
 
 	private static void SetInitialData(TimeSimGraph graph, HashSet<TimeVertex> boundary) {
 		//All to zero -> Do nothing
 		
 		//The first to 1
-		for(TimeVertex v : graph.vertexSet()) {
-			((EDOFunction)v.getFunction()).setInitialValue(1.0);
-			break;
-		}
+//		for(TimeVertex v : graph.vertexSet()) {
+//			((EDOFunction)v.getFunction()).setInitialValue(1.0);
+//			break;
+//		}
 		
 		//The half to 1
 //		int i = 0;

@@ -101,7 +101,7 @@ public class EDOFunction implements Function {
 
 	@Override
 	public boolean isConstant(double value) {
-		return this.getDerivative().isConstant() && this.initValue == value;
+		return this.getDerivative().isConstant(0.0) && this.initValue == value;
 	}
 	
 	//Private methods

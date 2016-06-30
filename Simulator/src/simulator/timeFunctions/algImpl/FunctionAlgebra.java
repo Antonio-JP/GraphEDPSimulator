@@ -335,14 +335,17 @@ public class FunctionAlgebra extends Algebra<Function, Double> {
 		}
 		
 		public Function pow(Function f1, Function f2) {
-			if(FunctionAlgebra.getInstance().isZero(f1)) {
-				return this.getZero();
-			}
+			
 			return new Function() {
 
 				@Override
 				public double getValue(double time) throws InvalidValue {
-					return Math.pow(f1.getValue(time), f2.getValue(time));
+					double base = f1.getValue(time);
+					if(base == 0.0) {
+						return 0.0;
+					}
+					
+					return Math.pow(base, f2.getValue(time));
 				}
 
 				@Override
